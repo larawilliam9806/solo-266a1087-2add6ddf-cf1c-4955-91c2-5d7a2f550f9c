@@ -1,0 +1,11 @@
+record_id,source,name,org
+CNKI-1001,CNKI,张伟,清华大学计算机科学与技术系
+WANFANG-2001,万方,张伟,清华大学 计算机系
+SCOPUS-3001,Scopus,Wei Zhang,"Tsinghua University, Dept. of Computer Science"
+CROSSREF-4001,Crossref,李娜,北京大学信息科学技术学院
+CNKI-1002,CNKI,李娜,北京大学 信息科学技术学院
+WANFANG-2002,万方,李娜,北京大学生命科学学院
+CROSSREF-4002,Crossref,王芳,复旦大学数学科学学院
+SCOPUS-3002,Scopus,Wang Fang,"Fudan University, School of Mathematical Sciences"
+CNKI-1003,CNKI,陈晨,浙江大学医学院附属第一医院
+WANFANG-2003,万方,陈晨,浙江大学 医学院

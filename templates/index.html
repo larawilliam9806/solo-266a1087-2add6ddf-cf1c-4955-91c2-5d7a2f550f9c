@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="stats">
+  <div class="stat"><span>{{ stats.records }}</span><label>记录</label></div>
+  <div class="stat"><span>{{ stats.groups }}</span><label>当前分组</label></div>
+  <div class="stat"><span>{{ stats.same }}</span><label>同一人判定</label></div>
+  <div class="stat"><span>{{ stats.different }}</span><label>不同人判定</label></div>
+</section>
+
+<div class="grid">
+  <section class="card">
+    <h2>1. 导入记录</h2>
+    <form action="{{ url_for('import_csv') }}" method="post" enctype="multipart/form-data" class="import-form">
+      <input type="file" name="file" accept=".csv,text/csv" required>
+      <button class="btn primary" type="submit">导入 CSV</button>
+    </form>
+    <p class="hint">
+      必需列：<code>record_id</code>（唯一记录ID）、<code>source</code>（来源）、<code>name</code>（姓名）、
+      <code>org</code>（单位）。也接受中文表头：唯一记录ID / 来源 / 姓名 / 单位。
+      按 <code>record_id</code> 幂等导入：同 ID 再次导入会更新姓名与单位。
+    </p>
+    <p class="hint">
+      <a href="{{ url_for('sample_csv') }}">下载示例 CSV</a>
+      · 示例包含 7 条跨系统记录，覆盖同名不同人、跨库同一人、以及已被判为不同人的情况。
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>2. 判定作者身份</h2>
+    <form action="{{ url_for('decide') }}" method="post" id="decide-form">
+      <input type="hidden" name="back" value="{{ request.full_path }}">
+      <div class="pair-picker">
+        <label>记录 A
+          <select name="a" id="sel-a" required>
+            <option value="">选择记录…</option>
+            {% for r in records %}
+              <option value="{{ r.record_id }}" {{ 'selected' if sel_a == r.record_id }}>
+                {{ r.record_id }} · {{ r.name }} · {{ r.org }} · {{ r.source }}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>记录 B
+          <select name="b" id="sel-b" required>
+            <option value="">选择记录…</option>
+            {% for r in records %}
+              <option value="{{ r.record_id }}" {{ 'selected' if sel_b == r.record_id }}>
+                {{ r.record_id }} · {{ r.name }} · {{ r.org }} · {{ r.source }}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn same" type="submit" name="kind" value="same">判定为同一人</button>
+        <button class="btn diff" type="submit" name="kind" value="different">判定为不同人</button>
+      </div>
+    </form>
+    <p class="hint">同一人关系自动传递；即使两条记录已在同组，直接判定仍会保存。不同人不得直接或间接同组，冲突会被拒绝并指出冲突记录对。</p>
+  </section>
+</div>
+
+<section class="card">
+  <div class="card-head">
+    <h2>3. 浏览记录</h2>
+    <form method="get" class="search">
+      <input type="search" name="q" value="{{ search }}" placeholder="按 ID / 姓名 / 单位筛选">
+      <button class="btn small" type="submit">筛选</button>
+      {% if search %}<a class="btn small ghost" href="{{ url_for('index') }}">清除</a>{% endif %}
+    </form>
+  </div>
+  {% if records %}
+  <table class="records">
+    <thead>
+      <tr><th>选择</th><th>唯一记录ID</th><th>来源</th><th>姓名</th><th>单位</th><th>当前分组</th></tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td><input type="checkbox" class="pick" value="{{ r.record_id }}"></td>
+        <td><code>{{ r.record_id }}</code></td>
+        <td><span class="tag">{{ r.source }}</span></td>
+        <td>{{ r.name }}</td>
+        <td>{{ r.org }}</td>
+        <td>
+          {% if group_of.get(r.record_id) %}
+            <a href="#group-{{ group_of[r.record_id] }}" class="group-link">{{ group_of[r.record_id] }}</a>
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="hint">勾选两条记录可快速填入上方判定表单。</p>
+  {% else %}
+  <p class="empty">暂无记录。请先导入 CSV（可先<a href="{{ url_for('sample_csv') }}">下载示例</a>）。</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>4. 当前分组</h2>
+    <span class="hint">共 {{ groups|length }} 组</span>
+  </div>
+  {% if groups %}
+  <div class="groups">
+    {% for g in groups %}
+    <article class="group {{ 'has-warning' if g.different_to else '' }}" id="group-{{ g.group_key }}">
+      <header>
+        <h3>组 <code>{{ g.group_key }}</code></h3>
+        <span class="badge">{{ g.records|length }} 条记录</span>
+      </header>
+      {% if g.different_to %}
+        <div class="warn">
+          <strong>警告：</strong>该组存在“不同人”约束冲突的判定（正常流程不应出现）：
+          {% for a, b in g.different_to %}<code>{{ a }}</code> ↔ <code>{{ b }}</code>{% if not loop.last %}，{% endif %}{% endfor %}
+        </div>
+      {% endif %}
+      <ul class="members">
+        {% for r in g.records %}
+          <li><code>{{ r.record_id }}</code><span>{{ r.name }}</span><span class="muted">{{ r.org }}</span><span class="tag">{{ r.source }}</span></li>
+        {% endfor %}
+      </ul>
+      {% if g.verdicts %}
+      <div class="group-verdicts">
+        {% for v in g.verdicts %}
+          <span class="chip {{ v.kind }}">{{ '同一人' if v.kind == 'same' else '不同人' }} · {{ v.a }} ↔ {{ v.b }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">暂无分组。</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>5. 生效判定</h2>
+    <span class="hint">可撤回任意一条；撤回后立即按其余判定重新分组</span>
+  </div>
+  {% if verdicts %}
+  <table class="verdicts">
+    <thead><tr><th>#</th><th>类型</th><th>记录 A</th><th>记录 B</th><th>时间</th><th></th></tr></thead>
+    <tbody>
+      {% for v in verdicts %}
+      <tr>
+        <td>{{ v.id }}</td>
+        <td><span class="chip {{ v.kind }}">{{ '同一人' if v.kind == 'same' else '不同人' }}</span></td>
+        <td><code>{{ v.a }}</code></td>
+        <td><code>{{ v.b }}</code></td>
+        <td class="muted">{{ v.created_at }} UTC</td>
+        <td>
+          <form action="{{ url_for('revoke', verdict_id=v.id) }}" method="post" onsubmit="return confirm('确认撤回判定 #{{ v.id }}？');">
+            <input type="hidden" name="back" value="{{ request.full_path }}">
+            <button class="btn small ghost" type="submit">撤回</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">尚无判定。</p>
+  {% endif %}
+</section>
+
+<script>
+  (function () {
+    const picks = Array.from(document.querySelectorAll('.pick'));
+    const a = document.getElementById('sel-a');
+    const b = document.getElementById('sel-b');
+    function refresh() {
+      const chosen = picks.filter(p => p.checked).map(p => p.value);
+      if (chosen.length > 2) {
+        picks.forEach(p => { if (p.value !== chosen[chosen.length - 1]) p.checked = false; });
+        return refresh();
+      }
+      if (chosen.length === 2) { a.value = chosen[0]; b.value = chosen[1]; }
+    }
+    picks.forEach(p => p.addEventListener('change', refresh));
+  })();
+</script>
+{% endblock %}

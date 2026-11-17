@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}高校成果库 · 作者身份归并{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">⌘</span>
+    <div>
+      <h1>高校成果库 · 作者身份归并</h1>
+      <p class="sub">跨系统作者记录判重 · 论文关联映射</p>
+    </div>
+  </div>
+  <nav>
+    <a href="{{ url_for('index') }}">工作台</a>
+    <a href="{{ url_for('api_groups') }}" target="_blank">分组 JSON</a>
+    <a class="btn primary small" href="{{ url_for('export_csv') }}">下载映射 CSV</a>
+  </nav>
+</header>
+
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flashes">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+
+<footer>
+  <span>判定结果持久化于 SQLite（WAL 模式）；分组由全部生效判定实时推导。</span>
+</footer>
+</body>
+</html>

@@ -1,0 +1,16 @@
+services:
+  web:
+    build: .
+    image: university-author-identity:local
+    ports:
+      - "8000:8000"
+    environment:
+      # Override to any long random string in a real deployment.
+      SECRET_KEY: "change-me-in-production"
+      DB_PATH: /data/identity.db
+    volumes:
+      - identity-data:/data
+    restart: unless-stopped
+
+volumes:
+  identity-data:
